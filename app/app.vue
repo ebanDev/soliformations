@@ -42,7 +42,7 @@
             <h2 class="text-lg font-bold">Post Instagram</h2>
           </template>
 
-          <svg ref="svgRef" class="rounded-lg w-lg h-[40rem] transform scale-0.355" viewBox="0 0 1080 1350"
+          <svg ref="svgRef" class="rounded-lg w-full max-w-lg" viewBox="0 0 1080 1350"
             xmlns="http://www.w3.org/2000/svg">
             <defs>
               <pattern id="backgroundPattern" patternUnits="userSpaceOnUse" width="100%" height="100%">
