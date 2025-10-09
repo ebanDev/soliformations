@@ -93,7 +93,7 @@
             </text>
           </svg>
           <div class="mt-4">
-            <UButton icon="ph:download-simple-bold" @click="downloadPng">
+            <UButton icon="ph:download-simple-bold" @click="downloadPng" :loading="isDownloading">
               Télécharger l'image
             </UButton>
           </div>
@@ -146,6 +146,7 @@ const iconGap = 24;
 const iconTextOffset = iconWidth + iconGap;
 
 const copyFeedback = ref(false);
+const isDownloading = ref(false);
 
 const formattedDateTime = computed(() => {
   if (!formationDate.value) return '';
@@ -253,6 +254,7 @@ const downloadPng = async () => {
   const DEBUG = import.meta.dev;
   const svgEl = svgRef.value;
   if (!svgEl) return;
+  isDownloading.value = true;
 
   // Helper: fetch a URL and convert to data URL
   const toDataUrl = async (url: string) => {
@@ -530,6 +532,7 @@ const downloadPng = async () => {
   a.click();
   URL.revokeObjectURL(a.href);
   document.body.removeChild(a);
+  isDownloading.value = false;
 };
 
 const copyWhatsappMessage = async () => {
