@@ -1,0 +1,601 @@
+<template>
+  <UApp>
+    <div class="flex flex-wrap gap-6 min-h-screen justify-center bg-gray-100 p-6">
+        <UCard class="mb-4 w-96 h-full" variant="outline">
+          <template #header>
+            <h2 class="text-lg font-bold">Ma formation</h2>
+          </template>
+
+          <div class="flex gap-4 flex-col">
+            <UFormField label="Nom">
+              <UInput placeholder="Nom de la formation" v-model="formationName" class="w-full" />
+            </UFormField>
+
+            <UFormField label="Description">
+              <UTextarea placeholder="Description de la formation" v-model="formationDescription" class="w-full" />
+            </UFormField>
+
+            <UFormField label="Date et heure">
+              <UInput type="datetime-local" class="w-full" v-model="formationDate" />
+            </UFormField>
+
+            <UFormField label="Lieu">
+              <UInput placeholder="Lieu de la formation" v-model="formationLocation" class="w-full" />
+            </UFormField>
+
+            <UFormField label="Image d'illustration">
+              <UFileUpload placeholder="URL de l'image" v-model="formationImage" class="w-full" icon="ph:upload-bold" />
+            </UFormField>
+
+            <UFormField label="Police d'écriture">
+              <USelect v-model="formationFont" class="w-full" :items="[
+                { label: 'Solidaires Boum', value: 'Solidaires Boum' },
+                { label: 'Solidaires Action', value: 'Solidaires Action' },
+                { label: 'Solidaires Cortege', value: 'Solidaires Cortege' },
+                { label: 'Solidaires Manif', value: 'Solidaires Manif' },
+              ]" />
+            </UFormField>
+          </div>
+        </UCard>
+        <UCard class="w-140 h-full" variant="outline">
+          <template #header>
+            <h2 class="text-lg font-bold">Post Instagram</h2>
+          </template>
+
+          <svg ref="svgRef" class="rounded-lg w-lg h-[40rem] transform scale-0.355" viewBox="0 0 1080 1350"
+            xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="backgroundPattern" patternUnits="userSpaceOnUse" width="100%" height="100%">
+                <image ref="backgroundImageRef" href="" width="100%" height="100%"
+                  preserveAspectRatio="xMidYMid slice" />
+              </pattern>
+              <pattern id="noisePattern" patternUnits="userSpaceOnUse" width="100%" height="100%">
+                <image ref="noiseImageRef" href="/noise.png" width="4096" height="4096" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#backgroundPattern)"
+              style="filter: brightness(80%) contrast(134%) saturate(0%)" />
+            <rect width="100%" height="100%" fill="#832727" fill-opacity="0.3" />
+            <rect width="100%" height="100%" fill="#832727" fill-opacity="0.2" style="mix-blend-mode: overlay" />
+            <rect width="100%" height="100%" fill="url(#noisePattern)" fill-opacity="0.8"
+              style="mix-blend-mode: overlay" />
+            <text x="50%" y="20%" text-anchor="middle" font-size="92" fill="white" class="font-subtitle">
+              Causerie
+            </text>
+            <text x="50%" y="520" text-anchor="middle" font-size="144" fill="white" class="font-title"
+              font-weight="800" dominant-baseline="middle">
+              <tspan v-for="(line, index) in titleLines" :key="index" x="50%"
+                :dy="index === 0 ? `${-((titleLines.length - 1) * 0.6)}em` : '1.2em'">
+                {{ line }}
+              </tspan>
+            </text>
+
+            <g ref="dateGroupRef" :transform="dateTransform">
+              <image href="/calendar.svg" :width="iconWidth" :height="iconWidth" :y="-iconWidth / 2" />
+              <text class="font-subtitle" font-size="52" font-weight="800" fill="white" text-anchor="start"
+                :x="iconTextOffset" dominant-baseline="middle">
+                {{ formattedDateTime || 'Date et heure' }}
+              </text>
+            </g>
+
+            <g ref="locationGroupRef" :transform="locationTransform">
+              <image href="/location.svg" :width="iconWidth" :height="iconWidth" :y="-iconWidth / 2" />
+              <text class="font-subtitle" font-size="52" font-weight="800" fill="white" text-anchor="start"
+                :x="iconTextOffset" dominant-baseline="middle">
+                {{ formationLocation || 'Lieu de la formation' }}
+              </text>
+            </g>
+
+            <rect x="25%" y="87.5%" width="50%" height="7.5%" fill="#B22222"
+              rx="20" ry="20" />
+            <text x="50%" y="92.25%" text-anchor="middle" font-size="42" fill="white" class="font-title" font-weight="bold">
+              SOLIDAIRES ÉTUDIANT·E·S 33
+            </text>
+          </svg>
+          <div class="mt-4">
+            <UButton icon="ph:download-simple-bold" @click="downloadPng">
+              Télécharger l'image
+            </UButton>
+          </div>
+        </UCard>
+        <UCard class="w-xl h-full" >
+          <template #header>
+            <h2 class="text-lg font-bold">Message WhatsApp</h2>
+          </template>
+
+          <p>
+            <strong>Causerie Solidaires Étudiant·e·s 33 🪧💥</strong>
+            <br />
+            Nous organisons cette semaine une causerie sur le thème <strong>{{ formationName || 'NOM DE LA FORMATION' }}</strong>. <br /> <br />
+            ℹ️ {{ formationDescription || 'Description de la formation' }} <br /> <br />
+            📅 <strong>{{ formattedLongDateTime || 'Date et heure' }}</strong> <br />
+            📍 <strong>{{ formationLocation || 'Lieu de la formation' }}</strong> <br />
+
+            Comme chaque semaine, cet évènement est ouvert à toutes et tous, n'hésitez pas à venir ! <br />
+          </p>
+
+          <UButton :icon="copyFeedback ? 'ph:check-bold' : 'ph:copy-bold'" @click="copyWhatsappMessage" class="mt-4">
+            Copier le message
+          </UButton>
+        </UCard>
+      </div>
+  </UApp>
+</template>
+
+<script setup lang="ts">
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
+
+const formationName = ref('');
+const formationDescription = ref('');
+const formationImage = ref<File | null>(null);
+const formationDate = ref('');
+const formationLocation = ref('');
+const formationFont = ref('Solidaires Boum');
+
+const backgroundImageRef = ref<SVGImageElement>();
+const svgRef = ref<SVGSVGElement>();
+const noiseImageRef = ref<SVGImageElement>();
+const dateGroupRef = ref<SVGGElement>();
+const locationGroupRef = ref<SVGGElement>();
+
+const dateTransform = ref('translate(486 783)');
+const locationTransform = ref('translate(486 878)');
+
+const iconWidth = 56;
+const iconGap = 24;
+const iconTextOffset = iconWidth + iconGap;
+
+const copyFeedback = ref(false);
+
+const formattedDateTime = computed(() => {
+  if (!formationDate.value) return '';
+  const date = new Date(formationDate.value);
+  return date.toLocaleDateString('fr-FR', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+});
+
+const formattedLongDateTime = computed(() => {
+  if (!formationDate.value) return '';
+  const date = new Date(formationDate.value);
+  return date.toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+});
+
+const titleLines = computed(() => {
+  const raw = (formationName.value || 'NOM DE LA FORMATION').toUpperCase().trim();
+  const words = raw.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return ['NOM DE LA FORMATION'];
+
+  const lines: string[] = [];
+  let current = '';
+  const MAX_LENGTH = 16;
+
+  for (const word of words) {
+    if (!current) {
+      current = word;
+      continue;
+    }
+    const candidate = `${current} ${word}`;
+    if (candidate.length <= MAX_LENGTH) {
+      current = candidate;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  }
+  if (current) lines.push(current);
+
+  return lines;
+});
+
+const recomputeIconGroupTransform = (group: SVGGElement | undefined | null, y: number) => {
+  if (!group) return null;
+  const previous = group.getAttribute('transform');
+  group.setAttribute('transform', 'translate(0 0)');
+  const bbox = group.getBBox();
+  const x = 540 - (bbox.x + bbox.width / 2);
+  if (previous) {
+    group.setAttribute('transform', previous);
+  } else {
+    group.removeAttribute('transform');
+  }
+  return `translate(${x} ${y})`;
+};
+
+const updateIconRowLayout = async () => {
+  await nextTick();
+  const date = recomputeIconGroupTransform(dateGroupRef.value, 783);
+  if (date) dateTransform.value = date;
+  const location = recomputeIconGroupTransform(locationGroupRef.value, 878);
+  if (location) locationTransform.value = location;
+};
+
+const updateBackground = async () => {
+  if (formationImage.value) {
+    const fr = new FileReader();
+    fr.readAsDataURL(formationImage.value);
+    fr.onload = () => {
+      backgroundImageRef.value!.setAttribute('href', fr.result as string);
+    };
+  } else {
+    backgroundImageRef.value!.setAttribute('href', '');
+  }
+};
+
+watch(formationImage, updateBackground);
+
+watch(formationFont, (newFont) => {
+  document.documentElement.style.setProperty('--font-title', newFont);
+  updateIconRowLayout();
+});
+
+watch([formattedDateTime, formationLocation], () => {
+  updateIconRowLayout();
+});
+
+onMounted(() => {
+  updateBackground();
+  updateIconRowLayout();
+});
+
+// Download the current SVG post as a 1080×1350 PNG
+const downloadPng = async () => {
+  const DEBUG = import.meta.dev;
+  const svgEl = svgRef.value;
+  if (!svgEl) return;
+
+  // Helper: fetch a URL and convert to data URL
+  const toDataUrl = async (url: string) => {
+    DEBUG && console.log('[export] fetching for data URL:', url);
+    const res = await fetch(url);
+    const blob = await res.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  const listExternalRefs = (root: SVGSVGElement) => {
+    const svgImgs: string[] = [];
+    const htmlImgs: string[] = [];
+    root.querySelectorAll('image').forEach((img) => {
+      const href = img.getAttribute('href') || img.getAttribute('xlink:href') || '';
+      if (href && !href.startsWith('data:')) svgImgs.push(href);
+    });
+    root.querySelectorAll('foreignObject img').forEach((img) => {
+      const src = img.getAttribute('src') || '';
+      if (src && !src.startsWith('data:')) htmlImgs.push(src);
+    });
+    return { svgImgs, htmlImgs };
+  };
+
+  // Clone the SVG to avoid mutating the preview
+  const clonedSvg = svgEl.cloneNode(true) as SVGSVGElement;
+  // Ensure intrinsic size and namespaces are present for serialization and rendering
+  clonedSvg.setAttribute('width', '1080');
+  clonedSvg.setAttribute('height', '1350');
+  if (!clonedSvg.getAttribute('xmlns')) clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  if (!clonedSvg.getAttribute('xmlns:xlink')) clonedSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+  DEBUG && console.log('[export] external refs before inline:', listExternalRefs(svgEl));
+
+  // Ensure fonts are set inline where needed (avoid relying on external CSS variables)
+  try {
+    // Set font-family on SVG <text> elements with class 'font-title'/'font-subtitle'
+    clonedSvg.querySelectorAll<SVGTextElement>('text.font-title').forEach(t => {
+      t.setAttribute('font-family', `${formationFont.value}, sans-serif`);
+      t.setAttribute('font-weight', '800');
+    });
+    clonedSvg.querySelectorAll<SVGTextElement>('text.font-subtitle').forEach(t => {
+      t.setAttribute('font-family', 'Sen, sans-serif');
+      t.setAttribute('font-weight', '800');
+    });
+
+    // Set font-family inline on HTML elements inside foreignObject that use 'font-title'
+    clonedSvg.querySelectorAll<HTMLElement>('foreignObject .font-title').forEach(el => {
+      el.setAttribute('style', `${el.getAttribute('style') || ''}; font-family: ${formationFont.value}, sans-serif;`);
+    });
+    // And ensure 'font-subtitle' inside foreignObject uses Sen as well
+    clonedSvg.querySelectorAll<HTMLElement>('foreignObject .font-subtitle').forEach(el => {
+      el.setAttribute('style', `${el.getAttribute('style') || ''}; font-family: Sen, sans-serif;`);
+    });
+  } catch (e) {
+    // noop
+  }
+
+  // Inline external images (icons and noise) to avoid CORS tainting
+  try {
+    // Generic: inline any <image> element inside the SVG
+    const svgImages = clonedSvg.querySelectorAll('image');
+    for (const img of Array.from(svgImages)) {
+      const href = img.getAttribute('href') || img.getAttribute('xlink:href');
+      if (href && !href.startsWith('data:')) {
+        try {
+          const data = await toDataUrl(href);
+          img.setAttribute('href', data);
+          img.removeAttribute('xlink:href');
+          DEBUG && console.log('[export] inlined <image> href:', href);
+        } catch {
+          DEBUG && console.warn('[export] failed to inline <image> href:', href);
+        }
+      }
+      // Be explicit about CORS on SVG images (harmless for data: URIs)
+      (img as any).setAttribute?.('crossorigin', 'anonymous');
+    }
+
+    // Inline noise.png in pattern
+    const noiseImg = clonedSvg.querySelector('pattern#noisePattern image') as SVGImageElement | null;
+    if (noiseImg) {
+      const href = noiseImg.getAttribute('href') || noiseImg.getAttribute('xlink:href');
+      if (href && !href.startsWith('data:')) {
+        try {
+          const data = await toDataUrl(href);
+          noiseImg.setAttribute('href', data);
+          noiseImg.removeAttribute('xlink:href');
+          DEBUG && console.log('[export] inlined noise image:', href);
+        } catch (e) {
+          DEBUG && console.warn('[export] failed to inline noise image:', href, e);
+        }
+      }
+    }
+
+    // Inline icons inside foreignObject (calendar.svg, location.svg)
+    const htmlImgs = clonedSvg.querySelectorAll('foreignObject img');
+    for (const img of Array.from(htmlImgs)) {
+      const src = img.getAttribute('src');
+      if (src && !src.startsWith('data:')) {
+        try {
+          const data = await toDataUrl(src);
+          img.setAttribute('src', data);
+          DEBUG && console.log('[export] inlined foreignObject <img> src:', src);
+        } catch {
+          DEBUG && console.warn('[export] failed to inline foreignObject <img> src:', src);
+        }
+      }
+    }
+
+    // Inline background image if it's still a relative URL (when using URL via upload it's already data URL)
+    const bgImg = clonedSvg.querySelector('pattern#backgroundPattern image') as SVGImageElement | null;
+    if (bgImg) {
+      const href = bgImg.getAttribute('href') || bgImg.getAttribute('xlink:href');
+      if (href && !href.startsWith('data:') && href.trim() !== '') {
+        try {
+          const data = await toDataUrl(href);
+          bgImg.setAttribute('href', data);
+          bgImg.removeAttribute('xlink:href');
+          DEBUG && console.log('[export] inlined background image:', href);
+        } catch {
+          DEBUG && console.warn('[export] failed to inline background image:', href);
+        }
+      }
+    }
+  } catch (e) {
+    // Best effort; continue
+    DEBUG && console.warn('[export] error while inlining images:', e);
+  }
+
+  DEBUG && console.log('[export] external refs after inline:', listExternalRefs(clonedSvg));
+
+  // Inline the selected Solidaires font and the Sen font into the SVG via @font-face to avoid external fetches during render
+  try {
+    const fontMap: Record<string, string> = {
+      'Solidaires Boum': '/Solidaire-Boum.otf',
+      'Solidaires Action': '/Solidaire-Action.otf',
+      'Solidaires Cortege': '/Solidaire-Cortege.otf',
+      'Solidaires Manif': '/Solidaire-Manif.otf',
+    };
+    const embedFont = async (fontFamily: string, url: string, format: string) => {
+      DEBUG && console.log('[export] embedding font:', fontFamily, url);
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const dataUrl: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+      styleEl.textContent = `@font-face { font-family: "${fontFamily}"; src: url(${dataUrl}) format('${format}'); font-weight: normal; font-style: normal; }`;
+      clonedSvg.insertBefore(styleEl, clonedSvg.firstChild);
+    };
+
+    const titleFontUrl = fontMap[formationFont.value];
+    if (titleFontUrl) await embedFont(formationFont.value, titleFontUrl, 'opentype');
+
+    // Always embed Sen as it's used for subtitles and meta info
+    await embedFont('Sen', '/Sen.ttf', 'truetype');
+  } catch (e) {
+    // Ignore font embedding errors
+    DEBUG && console.warn('[export] font embedding failed:', e);
+  }
+
+  // Serialize the cloned SVG
+  const serializer = new XMLSerializer();
+  const svgString = serializer.serializeToString(clonedSvg);
+
+  // Create an image from the SVG string
+  const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(svgBlob);
+
+  const img = new Image();
+  // Hint the browser to allow same-origin rendering
+  img.crossOrigin = 'anonymous';
+  const primaryCanvas = document.createElement('canvas');
+  const width = 1080;
+  const height = 1350;
+  primaryCanvas.width = width;
+  primaryCanvas.height = height;
+  const ctx = primaryCanvas.getContext('2d');
+  if (!ctx) {
+    URL.revokeObjectURL(url);
+    return;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => {
+      try {
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        // Early taint check
+        try {
+          ctx.getImageData(0, 0, 1, 1);
+          DEBUG && console.log('[export] canvas looks clean after draw');
+        } catch (e) {
+          DEBUG && console.warn('[export] canvas tainted immediately after drawImage:', e);
+        }
+        resolve();
+      } catch (err) {
+        reject(err);
+      }
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+
+  // Export canvas to PNG and download
+  let blob: Blob | null = null;
+  try {
+    blob = await new Promise((resolve, reject) =>
+      primaryCanvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob returned null'))), 'image/png')
+    );
+  } catch (e) {
+    DEBUG && console.error('[export] toBlob failed (canvas likely tainted):', e);
+    // Attempt fallback without foreignObject (some engines taint with FO even when data-URIs)
+    try {
+      URL.revokeObjectURL(url);
+    } catch {}
+
+    try {
+      const fallbackSvg = clonedSvg.cloneNode(true) as SVGSVGElement;
+      fallbackSvg.querySelectorAll('foreignObject').forEach((n) => n.parentNode?.removeChild(n));
+      const serializer2 = new XMLSerializer();
+      const svgString2 = serializer2.serializeToString(fallbackSvg);
+      const svgBlob2 = new Blob([svgString2], { type: 'image/svg+xml;charset=utf-8' });
+      const url2 = URL.createObjectURL(svgBlob2);
+      const fallbackCanvas = document.createElement('canvas');
+      fallbackCanvas.width = width;
+      fallbackCanvas.height = height;
+      const fallbackCtx = fallbackCanvas.getContext('2d');
+      if (!fallbackCtx) {
+        DEBUG && console.warn('[export] fallback canvas context unavailable');
+        URL.revokeObjectURL(url2);
+        throw new Error('fallback canvas ctx null');
+      }
+      await new Promise<void>((resolve, reject) => {
+        const img2 = new Image();
+        img2.crossOrigin = 'anonymous';
+        img2.onload = () => {
+          try {
+            fallbackCtx.clearRect(0, 0, width, height);
+            fallbackCtx.drawImage(img2, 0, 0, width, height);
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        };
+        img2.onerror = reject;
+        img2.src = url2;
+      });
+      // Try export again
+      blob = await new Promise((resolve, reject) =>
+        fallbackCanvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob returned null (fallback)'))), 'image/png')
+      );
+      DEBUG && console.warn('[export] fallback export without foreignObject succeeded');
+      try { URL.revokeObjectURL(url2); } catch {}
+    } catch (e2) {
+      DEBUG && console.error('[export] fallback export without foreignObject failed:', e2);
+    }
+  }
+
+  try { URL.revokeObjectURL(url); } catch {}
+  if (!blob) return;
+
+  const a = document.createElement('a');
+  const fileBase = formationName.value?.trim() || 'post-instagram';
+  a.download = `${fileBase.replace(/\s+/g, '-').toLowerCase()}.png`;
+  a.href = URL.createObjectURL(blob);
+  document.body.appendChild(a);
+  a.click();
+  URL.revokeObjectURL(a.href);
+  document.body.removeChild(a);
+};
+
+const copyWhatsappMessage = async () => {
+  copyFeedback.value = true;
+  const parts = [
+    '*Causerie Solidaires Étudiant·e·s 33* 🪧💥',
+    '',
+    `Nous organisons cette semaine une causerie sur le thème *${formationName || 'NOM DE LA FORMATION'}*.`,
+    '',
+    formationDescription || 'Description de la formation',
+    '',
+    `📅 *${formattedLongDateTime || 'Date et heure'}*`,
+    `📍 *${formationLocation || 'Lieu de la formation'}*`,
+    '',
+    "Comme chaque semaine, cet évènement est ouvert à toutes et tous, n'hésitez pas à venir !",
+  ];
+  const message = parts.join('\n');
+
+  try {
+    await navigator.clipboard.writeText(message);
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    copyFeedback.value = false;
+    // Optionally show a success message
+  } catch (e) {
+    // Optionally show an error message
+  }
+};
+</script>
+
+<style>
+@font-face {
+  font-family: 'Solidaires Boum';
+  src: url('/Solidaire-Boum.otf');
+}
+
+@font-face {
+  font-family: 'Solidaires Action';
+  src: url('/Solidaire-Action.otf');
+}
+
+@font-face {
+  font-family: 'Solidaires Cortege';
+  src: url('/Solidaire-Cortege.otf');
+}
+
+@font-face {
+  font-family: 'Solidaires Manif';
+  src: url('/Solidaire-Manif.otf');
+}
+
+@font-face {
+  font-family: 'Sen';
+  src: url('/Sen.ttf');
+}
+
+:root {
+  --font-title: 'Solidaires Boum';
+}
+
+.font-title {
+  font-family: var(--font-title), sans-serif;
+}
+
+.font-subtitle {
+  font-family: 'Sen', sans-serif;
+  font-weight: 800;
+  color: white;
+}
+</style>
