@@ -125,12 +125,21 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
-const formationName = ref('');
-const formationDescription = ref('');
+// Cookie management for persistence
+const cookieFormationName = useCookie('formationName', { maxAge: 60 * 60 * 24 * 365 }); // 1 year
+const cookieFormationDescription = useCookie('formationDescription', { maxAge: 60 * 60 * 24 * 365 });
+const cookieFormationDate = useCookie('formationDate', { maxAge: 60 * 60 * 24 * 365 });
+const cookieFormationLocation = useCookie('formationLocation', { maxAge: 60 * 60 * 24 * 365 });
+const cookieFormationFont = useCookie('formationFont', { maxAge: 60 * 60 * 24 * 365 });
+const cookieFormationImageData = useCookie('formationImageData', { maxAge: 60 * 60 * 24 * 365 });
+
+// Initialize refs with cookie values or defaults
+const formationName = ref(cookieFormationName.value || '');
+const formationDescription = ref(cookieFormationDescription.value || '');
 const formationImage = ref<File | null>(null);
-const formationDate = ref('');
-const formationLocation = ref('');
-const formationFont = ref('Solidaires Boum');
+const formationDate = ref(cookieFormationDate.value || '');
+const formationLocation = ref(cookieFormationLocation.value || '');
+const formationFont = ref(cookieFormationFont.value || 'Solidaires Boum');
 
 const backgroundImageRef = ref<SVGImageElement>();
 const svgRef = ref<SVGSVGElement>();
@@ -233,11 +242,41 @@ const updateBackground = async () => {
   }
 };
 
-watch(formationImage, updateBackground);
+// Watch for form field changes and save to cookies
+watch(formationName, (value) => {
+  cookieFormationName.value = value;
+});
+
+watch(formationDescription, (value) => {
+  cookieFormationDescription.value = value;
+});
+
+watch(formationDate, (value) => {
+  cookieFormationDate.value = value;
+});
+
+watch(formationLocation, (value) => {
+  cookieFormationLocation.value = value;
+});
 
 watch(formationFont, (newFont) => {
+  cookieFormationFont.value = newFont;
   document.documentElement.style.setProperty('--font-title', newFont);
   updateIconRowLayout();
+});
+
+// Watch for image changes and save to cookies as data URL
+watch(formationImage, async (file) => {
+  if (file) {
+    const fr = new FileReader();
+    fr.readAsDataURL(file);
+    fr.onload = () => {
+      cookieFormationImageData.value = fr.result as string;
+    };
+  } else {
+    cookieFormationImageData.value = null;
+  }
+  updateBackground();
 });
 
 watch([formattedDateTime, formationLocation], () => {
@@ -245,8 +284,24 @@ watch([formattedDateTime, formationLocation], () => {
 });
 
 onMounted(() => {
-  updateBackground();
-  updateIconRowLayout();
+  // Restore image from cookie if available
+  if (cookieFormationImageData.value) {
+    // Convert data URL back to File object
+    fetch(cookieFormationImageData.value)
+      .then(res => res.blob())
+      .then(blob => {
+        const file = new File([blob], 'restored-image.png', { type: blob.type });
+        formationImage.value = file;
+      })
+      .catch(() => {
+        // If restoration fails, just skip it
+        updateBackground();
+        updateIconRowLayout();
+      });
+  } else {
+    updateBackground();
+    updateIconRowLayout();
+  }
 });
 
 // Download the current SVG post as a 1080×1350 PNG
