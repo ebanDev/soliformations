@@ -72,23 +72,23 @@
 
             <g ref="dateGroupRef" :transform="dateTransform">
               <image href="/calendar.svg" :width="iconWidth" :height="iconWidth" :y="-iconWidth / 2" />
-              <text class="font-subtitle" font-size="52" font-weight="800" fill="white" text-anchor="start"
-                :x="iconTextOffset" dominant-baseline="middle">
+              <text class="font-subtitle" font-size="60" font-weight="800" fill="white" text-anchor="start"
+                :x="iconTextOffset" y="0" dominant-baseline="middle">
                 {{ formattedDateTime || 'Date et heure' }}
               </text>
             </g>
 
             <g ref="locationGroupRef" :transform="locationTransform">
               <image href="/location.svg" :width="iconWidth" :height="iconWidth" :y="-iconWidth / 2" />
-              <text class="font-subtitle" font-size="52" font-weight="800" fill="white" text-anchor="start"
-                :x="iconTextOffset" dominant-baseline="middle">
+              <text class="font-subtitle" font-size="60" font-weight="800" fill="white" text-anchor="start"
+                :x="iconTextOffset" y="0" dominant-baseline="middle">
                 {{ formationLocation || 'Lieu de la formation' }}
               </text>
             </g>
 
-            <rect x="25%" y="87.5%" width="50%" height="7.5%" fill="#B22222"
+            <rect x="22.5%" y="86.5%" width="55%" height="8%" fill="#B22222"
               rx="20" ry="20" />
-            <text x="50%" y="92.25%" text-anchor="middle" font-size="42" fill="white" class="font-title" font-weight="bold">
+            <text x="50%" y="91.5%" text-anchor="middle" font-size="48" fill="white" class="font-title" font-weight="900">
               SOLIDAIRES ÉTUDIANT·E·S 33
             </text>
           </svg>
@@ -125,21 +125,16 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
-// Cookie management for persistence
-const cookieFormationName = useCookie('formationName', { maxAge: 60 * 60 * 24 * 365 }); // 1 year
-const cookieFormationDescription = useCookie('formationDescription', { maxAge: 60 * 60 * 24 * 365 });
-const cookieFormationDate = useCookie('formationDate', { maxAge: 60 * 60 * 24 * 365 });
-const cookieFormationLocation = useCookie('formationLocation', { maxAge: 60 * 60 * 24 * 365 });
-const cookieFormationFont = useCookie('formationFont', { maxAge: 60 * 60 * 24 * 365 });
-const cookieFormationImageData = useCookie('formationImageData', { maxAge: 60 * 60 * 24 * 365 });
+// Local storage management for persistence
 
-// Initialize refs with cookie values or defaults
-const formationName = ref(cookieFormationName.value || '');
-const formationDescription = ref(cookieFormationDescription.value || '');
+// Initialize refs with defaults
+const formationName = ref('');
+const formationDescription = ref('');
 const formationImage = ref<File | null>(null);
-const formationDate = ref(cookieFormationDate.value || '');
-const formationLocation = ref(cookieFormationLocation.value || '');
-const formationFont = ref(cookieFormationFont.value || 'Solidaires Boum');
+const formationImageDataUrl = ref<string | null>(null);
+const formationDate = ref('');
+const formationLocation = ref('');
+const formationFont = ref('Solidaires Boum');
 
 const backgroundImageRef = ref<SVGImageElement>();
 const svgRef = ref<SVGSVGElement>();
@@ -150,7 +145,7 @@ const locationGroupRef = ref<SVGGElement>();
 const dateTransform = ref('translate(486 783)');
 const locationTransform = ref('translate(486 878)');
 
-const iconWidth = 56;
+const iconWidth = 64;
 const iconGap = 24;
 const iconTextOffset = iconWidth + iconGap;
 
@@ -230,53 +225,52 @@ const updateIconRowLayout = async () => {
   if (location) locationTransform.value = location;
 };
 
-const updateBackground = async () => {
-  if (formationImage.value) {
-    const fr = new FileReader();
-    fr.readAsDataURL(formationImage.value);
-    fr.onload = () => {
-      backgroundImageRef.value!.setAttribute('href', fr.result as string);
-    };
-  } else {
-    backgroundImageRef.value!.setAttribute('href', '');
-  }
+const updateBackground = () => {
+  if (!backgroundImageRef.value) return;
+  backgroundImageRef.value.setAttribute('href', formationImageDataUrl.value || '');
 };
 
-// Watch for form field changes and save to cookies
+// Watch for form field changes and save to local storage
 watch(formationName, (value) => {
-  cookieFormationName.value = value;
+  localStorage.setItem('formationName', value);
 });
 
 watch(formationDescription, (value) => {
-  cookieFormationDescription.value = value;
+  localStorage.setItem('formationDescription', value);
 });
 
 watch(formationDate, (value) => {
-  cookieFormationDate.value = value;
+  localStorage.setItem('formationDate', value);
 });
 
 watch(formationLocation, (value) => {
-  cookieFormationLocation.value = value;
+  localStorage.setItem('formationLocation', value);
 });
 
 watch(formationFont, (newFont) => {
-  cookieFormationFont.value = newFont;
+  localStorage.setItem('formationFont', newFont);
   document.documentElement.style.setProperty('--font-title', newFont);
   updateIconRowLayout();
 });
 
-// Watch for image changes and save to cookies as data URL
+// Watch for image changes and save to local storage as data URL
 watch(formationImage, async (file) => {
   if (file) {
-    const fr = new FileReader();
-    fr.readAsDataURL(file);
-    fr.onload = () => {
-      cookieFormationImageData.value = fr.result as string;
-    };
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result as string);
+      fr.onerror = () => reject(fr.error);
+      fr.readAsDataURL(file);
+    });
+    formationImageDataUrl.value = dataUrl;
+    localStorage.setItem('formationImageData', dataUrl);
   } else {
-    cookieFormationImageData.value = null;
+    formationImageDataUrl.value = null;
+    localStorage.removeItem('formationImageData');
   }
   updateBackground();
+  await nextTick();
+  updateIconRowLayout();
 });
 
 watch([formattedDateTime, formationLocation], () => {
@@ -284,19 +278,30 @@ watch([formattedDateTime, formationLocation], () => {
 });
 
 onMounted(() => {
-  // Restore image from cookie if available
-  if (cookieFormationImageData.value) {
-    // Convert data URL back to File object
-    fetch(cookieFormationImageData.value)
+  // Load values from local storage
+  formationName.value = localStorage.getItem('formationName') || '';
+  formationDescription.value = localStorage.getItem('formationDescription') || '';
+  formationDate.value = localStorage.getItem('formationDate') || '';
+  formationLocation.value = localStorage.getItem('formationLocation') || '';
+  formationFont.value = localStorage.getItem('formationFont') || 'Solidaires Boum';
+  document.documentElement.style.setProperty('--font-title', formationFont.value);
+  updateIconRowLayout();
+
+  // Restore image from local storage if available
+  const stored = localStorage.getItem('formationImageData');
+  if (stored) {
+    formationImageDataUrl.value = stored;
+    updateBackground();
+    updateIconRowLayout();
+    // Attempt to recreate File for UI consistency, but background already restored
+    fetch(stored)
       .then(res => res.blob())
       .then(blob => {
         const file = new File([blob], 'restored-image.png', { type: blob.type });
         formationImage.value = file;
       })
       .catch(() => {
-        // If restoration fails, just skip it
-        updateBackground();
-        updateIconRowLayout();
+        // If recreation fails, keep the background preview
       });
   } else {
     updateBackground();
@@ -453,7 +458,7 @@ const downloadPng = async () => {
       'Solidaires Cortege': '/Solidaire-Cortege.otf',
       'Solidaires Manif': '/Solidaire-Manif.otf',
     };
-    const embedFont = async (fontFamily: string, url: string, format: string) => {
+    const embedFont = async (fontFamily: string, url: string, format: string, weight: string = 'normal') => {
       DEBUG && console.log('[export] embedding font:', fontFamily, url);
       const res = await fetch(url);
       const blob = await res.blob();
@@ -464,15 +469,15 @@ const downloadPng = async () => {
         reader.readAsDataURL(blob);
       });
       const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
-      styleEl.textContent = `@font-face { font-family: "${fontFamily}"; src: url(${dataUrl}) format('${format}'); font-weight: normal; font-style: normal; }`;
+      styleEl.textContent = `@font-face { font-family: "${fontFamily}"; src: url(${dataUrl}) format('${format}'); font-weight: ${weight}; font-style: normal; font-display: swap; }`;
       clonedSvg.insertBefore(styleEl, clonedSvg.firstChild);
     };
 
     const titleFontUrl = fontMap[formationFont.value];
-    if (titleFontUrl) await embedFont(formationFont.value, titleFontUrl, 'opentype');
+    if (titleFontUrl) await embedFont(formationFont.value, titleFontUrl, 'opentype', '800');
 
     // Always embed Sen as it's used for subtitles and meta info
-    await embedFont('Sen', '/Sen.ttf', 'truetype');
+    await embedFont('Sen', '/Sen.ttf', 'truetype', '800');
   } catch (e) {
     // Ignore font embedding errors
     DEBUG && console.warn('[export] font embedding failed:', e);
@@ -621,26 +626,36 @@ const copyWhatsappMessage = async () => {
 @font-face {
   font-family: 'Solidaires Boum';
   src: url('/Solidaire-Boum.otf');
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
   font-family: 'Solidaires Action';
   src: url('/Solidaire-Action.otf');
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
   font-family: 'Solidaires Cortege';
   src: url('/Solidaire-Cortege.otf');
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
   font-family: 'Solidaires Manif';
   src: url('/Solidaire-Manif.otf');
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {
   font-family: 'Sen';
   src: url('/Sen.ttf');
+  font-style: normal;
+  font-display: swap;
 }
 
 :root {
