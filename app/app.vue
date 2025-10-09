@@ -358,7 +358,7 @@ const downloadPng = async () => {
     // Set font-family on SVG <text> elements with class 'font-title'/'font-subtitle'
     clonedSvg.querySelectorAll<SVGTextElement>('text.font-title').forEach(t => {
       t.setAttribute('font-family', `${formationFont.value}, sans-serif`);
-      t.setAttribute('font-weight', '800');
+      t.setAttribute('font-weight', '900');
     });
     clonedSvg.querySelectorAll<SVGTextElement>('text.font-subtitle').forEach(t => {
       t.setAttribute('font-family', 'Sen, sans-serif');
@@ -474,7 +474,7 @@ const downloadPng = async () => {
     };
 
     const titleFontUrl = fontMap[formationFont.value];
-    if (titleFontUrl) await embedFont(formationFont.value, titleFontUrl, 'opentype', '800');
+    if (titleFontUrl) await embedFont(formationFont.value, titleFontUrl, 'opentype', '900');
 
     // Always embed Sen as it's used for subtitles and meta info
     await embedFont('Sen', '/Sen.ttf', 'truetype', '800');
@@ -664,6 +664,7 @@ const copyWhatsappMessage = async () => {
 
 .font-title {
   font-family: var(--font-title), sans-serif;
+  font-weight: 900;
 }
 
 .font-subtitle {
