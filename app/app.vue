@@ -157,7 +157,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
-// Local storage management for persistence
+// IndexedDB storage management for persistence
+const storage = useStorage();
 
 // Initialize refs with defaults
 const formationName = ref('');
@@ -299,30 +300,30 @@ const updateBackground = () => {
   if (backgroundImageRef2.value) backgroundImageRef2.value.setAttribute('href', formationImageDataUrl.value || '');
 };
 
-// Watch for form field changes and save to local storage
+// Watch for form field changes and save to IndexedDB
 watch(formationName, (value) => {
-  localStorage.setItem('formationName', value);
+  storage.setItem('formationName', value);
 });
 
 watch(formationDescription, (value) => {
-  localStorage.setItem('formationDescription', value);
+  storage.setItem('formationDescription', value);
 });
 
 watch(formationDate, (value) => {
-  localStorage.setItem('formationDate', value);
+  storage.setItem('formationDate', value);
 });
 
 watch(formationLocation, (value) => {
-  localStorage.setItem('formationLocation', value);
+  storage.setItem('formationLocation', value);
 });
 
 watch(formationFont, (newFont) => {
-  localStorage.setItem('formationFont', newFont);
+  storage.setItem('formationFont', newFont);
   document.documentElement.style.setProperty('--font-title', newFont);
   updateIconRowLayout();
 });
 
-// Watch for image changes and save to local storage as data URL
+// Watch for image changes and save to IndexedDB as data URL
 watch(formationImage, async (file) => {
   if (file) {
     const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -332,10 +333,10 @@ watch(formationImage, async (file) => {
       fr.readAsDataURL(file);
     });
     formationImageDataUrl.value = dataUrl;
-    localStorage.setItem('formationImageData', dataUrl);
+    storage.setItem('formationImageData', dataUrl);
   } else {
     formationImageDataUrl.value = null;
-    localStorage.removeItem('formationImageData');
+    storage.removeItem('formationImageData');
   }
   updateBackground();
   await nextTick();
@@ -346,18 +347,21 @@ watch([formattedDateTime, formationLocation], () => {
   updateIconRowLayout();
 });
 
-onMounted(() => {
-  // Load values from local storage
-  formationName.value = localStorage.getItem('formationName') || '';
-  formationDescription.value = localStorage.getItem('formationDescription') || '';
-  formationDate.value = localStorage.getItem('formationDate') || '';
-  formationLocation.value = localStorage.getItem('formationLocation') || '';
-  formationFont.value = localStorage.getItem('formationFont') || 'Solidaires Boum';
+onMounted(async () => {
+  // Migrate data from localStorage to IndexedDB (if not already done)
+  await storage.migrateFromLocalStorage();
+
+  // Load values from IndexedDB
+  formationName.value = (await storage.getItem('formationName')) || '';
+  formationDescription.value = (await storage.getItem('formationDescription')) || '';
+  formationDate.value = (await storage.getItem('formationDate')) || '';
+  formationLocation.value = (await storage.getItem('formationLocation')) || '';
+  formationFont.value = (await storage.getItem('formationFont')) || 'Solidaires Boum';
   document.documentElement.style.setProperty('--font-title', formationFont.value);
   updateIconRowLayout();
 
-  // Restore image from local storage if available
-  const stored = localStorage.getItem('formationImageData');
+  // Restore image from IndexedDB if available
+  const stored = await storage.getItem('formationImageData');
   if (stored) {
     formationImageDataUrl.value = stored;
     updateBackground();
