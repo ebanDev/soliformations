@@ -679,12 +679,12 @@ const copyWhatsappMessage = async () => {
   const parts = [
     '*Causerie Solidaires Étudiant·e·s 33* 🪧💥',
     '',
-    `Nous organisons cette semaine une causerie sur le thème *${formationName || 'NOM DE LA FORMATION'}*.`,
+    `Nous organisons cette semaine une causerie sur le thème *${formationName.value || 'NOM DE LA FORMATION'}*.`,
     '',
-    formationDescription || 'Description de la formation',
+    formationDescription.value || 'Description de la formation',
     '',
-    `📅 *${formattedLongDateTime || 'Date et heure'}*`,
-    `📍 *${formationLocation || 'Lieu de la formation'}*`,
+    `📅 *${formattedLongDateTime.value || 'Date et heure'}*`,
+    `📍 *${formationLocation.value || 'Lieu de la formation'}*`,
     '',
     "Comme chaque semaine, cet évènement est ouvert à toutes et tous, n'hésitez pas à venir !",
   ];
